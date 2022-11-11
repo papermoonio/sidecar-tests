@@ -63,8 +63,20 @@ def perform_api_test(test_name, api_path):
 
   return True
 
+# TODO: fetch from sidecar
+# TODO: fetch from polkadot
+# TODO: fetch from rpc? might be too much testing
 def perform_content_test():
-  logger.info("Mock content test")
+  response, error = fetch_sidecar_api("/blocks/head")
+
+  resjson = response.json()
+  blockNum = resjson['number']
+  extrinsics = resjson['extrinsics']
+
+  for extr in extrinsics:
+    method = extr['method']
+    if(method['pallet'] == 'ethereum' and method['method'] == 'transact'):
+      logger.info(extr['args']['transaction'])
 
 def main(amount_random_blocks = 10):
   tests = [
