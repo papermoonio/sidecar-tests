@@ -76,42 +76,99 @@ def perform_content_test():
   for extr in extrinsics:
     method = extr['method']
     if(method['pallet'] == 'ethereum' and method['method'] == 'transact'):
-      logger.info(extr['args']['transaction'])
+      # logger.info(extr)
+      tx = extr['args']['transaction']
+
+      if('legacy' in tx):
+        logger.info('Legacy found!')
+        #logger.info(tx)
+      elif('eip1559' in tx):
+        logger.info('EIP-1559 found!')
+
+        # Get relevant data to calculate the gas price
+        maxPriorityFeePerGas = int(tx['eip1559']['maxPriorityFeePerGas'])
+        maxFeePerGas = int(tx['eip1559']['maxFeePerGas'])
+        baseGasFee = base_fee[args.network]
+
+        # Calculate the gas price
+        gasPrice = baseGasFee + maxPriorityFeePerGas if (baseGasFee + maxPriorityFeePerGas < maxFeePerGas) else maxFeePerGas
+
+        # Get the weight
+        #try:
+        # Try to get weight from the extrinsic events
+        if(len(extr['events']) > 1):
+          finalEvent = extr['events'][-1]
+          logger.info(finalEvent)
+          if(finalEvent['method']['method'] == 'ExtrinsicSuccess'):
+            weight = int(finalEvent['data'][0]['weight']['refTime'])
+          else:
+            raise Exception("The final event was not 'ExtrinsicSuccess'")
+
+          transactionHash = extr['events'][-2]['data'][2]
+        else:
+          raise Exception("There were no events in the final event of the extrinsic.")
+
+        # Log out the weight & other data
+        logger.info("ethereum transaction hash: " + transactionHash)
+        logger.info("weight: " + str(weight))
+        logger.info("adjusted weight: " + str(weight + base_extrinsic_weight[args.network]))
+        logger.info("Gas price: " + str(gasPrice))
+        logger.info("max fee per gas: " + str(maxFeePerGas))
+        logger.info("max priority fee per gas: " + str(maxPriorityFeePerGas))
+        logger.info("base gas fee: " + str(baseGasFee))
+
+        1500000000
+        2700000000
+
+        # Calculate transaction fee
+        transactionFee = (gasPrice * (weight + base_extrinsic_weight[args.network])) / 2500
+        logger.info("Transaction Fee: " + str(transactionFee))       
+        #except:
+        #  logger.info("PLACEHOLDER ERROR!")
+
+
+        # Gas Price = Base Fee + Max Priority Fee Per Gas < Max Fee Per Gas ? 
+        # Base Fee + Max Priority Fee Per Gas: 
+        # Max Fee Per Gas;
+        # Transaction Fee = (Gas Price * Transaction Weight) / 25000
+      elif('eip2930' in tx):
+        logger.info('EIP-2930 found!')  
+
 
 def main(amount_random_blocks = 10):
-  tests = [
-    {"test_name": "Fetch node version", "api_path": "/node/version"},
-    {"test_name": "Fetch runtime spec", "api_path": "/runtime/spec"},
-    {"test_name": "Fetch latest (best) block", "api_path": "/blocks/head"},
-    {"test_name": "Fetch latest (best) block header", "api_path": "/blocks/head/header"},
-  ]
+  # tests = [
+  #   {"test_name": "Fetch node version", "api_path": "/node/version"},
+  #   {"test_name": "Fetch runtime spec", "api_path": "/runtime/spec"},
+  #   {"test_name": "Fetch latest (best) block", "api_path": "/blocks/head"},
+  #   {"test_name": "Fetch latest (best) block header", "api_path": "/blocks/head/header"},
+  # ]
 
-  for b in problematic_blocks[args.network]:
-    tests.append({"test_name": f"Fetch problematic block #{b}", "api_path": f"/blocks/{b}"})
+  # for b in problematic_blocks[args.network]:
+  #   tests.append({"test_name": f"Fetch problematic block #{b}", "api_path": f"/blocks/{b}"})
 
-  for test in tests:
-    test_passed = perform_api_test(*test.values())
-    if not test_passed:
-      sys.exit(1)
+  # for test in tests:
+  #   test_passed = perform_api_test(*test.values())
+  #   if not test_passed:
+  #     sys.exit(1)
 
-  # Fetch first block of the latest runtime
-  response, error = fetch_sidecar_api("/runtime/spec")
-  if error or response.status_code != requests.codes.ok:
-    logger.critical("Could not fetch the first block of the last runtime")
-    sys.exit(1)
+  # # Fetch first block of the latest runtime
+  # response, error = fetch_sidecar_api("/runtime/spec")
+  # if error or response.status_code != requests.codes.ok:
+  #   logger.critical("Could not fetch the first block of the last runtime")
+  #   sys.exit(1)
 
-  first_block_of_runtime = int(response.json()["at"]["height"])
+  # first_block_of_runtime = int(response.json()["at"]["height"])
 
-  tests = []
-  for _ in range(amount_random_blocks):
-    random_block = random.randint(1, first_block_of_runtime)
-    tests.append({"test_name": f"Fetch random block #{random_block}", "api_path": f"/blocks/{random_block}"})
+  # tests = []
+  # for _ in range(amount_random_blocks):
+  #   random_block = random.randint(1, first_block_of_runtime)
+  #   tests.append({"test_name": f"Fetch random block #{random_block}", "api_path": f"/blocks/{random_block}"})
 
-  # Tests to ensure that the endpoints have no errors
-  for test in tests:
-    test_passed = perform_api_test(*test.values())
-    if not test_passed:
-      sys.exit(1)
+  # # Tests to ensure that the endpoints have no errors
+  # for test in tests:
+  #   test_passed = perform_api_test(*test.values())
+  #   if not test_passed:
+  #     sys.exit(1)
 
   # Tests to ensure that the content of the blocks have no errors
   perform_content_test()
@@ -137,6 +194,20 @@ if __name__ == "__main__":
     'moonbase-alpha': [6600, 6601],
     'moonriver': [],
     'moonbeam': [],
+  }
+
+  # Dictionary containing the base gas fee for transactions, specific to Moonbeam networks
+  base_fee = {
+    'moonbase-alpha': 1000000000,
+    'moonriver': 1000000000,
+    'moonbeam': 100000000000,
+  }
+
+  # Dictionary containing base extrinsic weight
+  base_extrinsic_weight = {
+    'moonbase-alpha': 250000000,
+    'moonriver': 86298000,
+    'moonbeam': 86298000,
   }
   
   main()
