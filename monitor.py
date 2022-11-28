@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import requests, random, time, logging, argparse, sys
+from web3 import Web3
 
 def parse_arguments():
   parser = argparse.ArgumentParser(description="Script to test a Sidecar instance")
@@ -67,6 +68,7 @@ def perform_api_test(test_name, api_path):
 # TODO: fetch from polkadot
 # TODO: fetch from rpc? might be too much testing
 def perform_content_test():
+  w3 = Web3(Web3.HTTPProvider(rpc_url[args.network]))
   response, error = fetch_sidecar_api("/blocks/head")
 
   resjson = response.json()
@@ -94,40 +96,41 @@ def perform_content_test():
         gasPrice = baseGasFee + maxPriorityFeePerGas if (baseGasFee + maxPriorityFeePerGas < maxFeePerGas) else maxFeePerGas
 
         # Get the weight
-        #try:
-        # Try to get weight from the extrinsic events
-        if(len(extr['events']) > 1):
-          finalEvent = extr['events'][-1]
-          logger.info(finalEvent)
-          if(finalEvent['method']['method'] == 'ExtrinsicSuccess'):
-            weight = int(finalEvent['data'][0]['weight']['refTime'])
+        try:
+          # Try to get weight from the extrinsic events
+          if(len(extr['events']) > 1):
+            finalEvent = extr['events'][-1]
+            #logger.info(finalEvent)
+            if(finalEvent['method']['method'] == 'ExtrinsicSuccess'):
+              weight = int(finalEvent['data'][0]['weight']['refTime'])
+            else:
+              raise Exception("The final event was not 'ExtrinsicSuccess'")
+
+            transactionHash = extr['events'][-2]['data'][2]
           else:
-            raise Exception("The final event was not 'ExtrinsicSuccess'")
+            raise Exception("There were no events in the final event of the extrinsic.")
 
-          transactionHash = extr['events'][-2]['data'][2]
-        else:
-          raise Exception("There were no events in the final event of the extrinsic.")
+          # Log out the weight & other data
+          logger.info("ethereum transaction hash: " + transactionHash)
+          logger.info("weight: " + str(weight))
+          logger.info("adjusted weight: " + str(weight + base_extrinsic_weight[args.network]))
+          logger.info("Gas price: " + str(gasPrice))
+          logger.info("max fee per gas: " + str(maxFeePerGas))
+          logger.info("max priority fee per gas: " + str(maxPriorityFeePerGas))
+          logger.info("base gas fee: " + str(baseGasFee))
 
-        # Log out the weight & other data
-        logger.info("ethereum transaction hash: " + transactionHash)
-        logger.info("weight: " + str(weight))
-        logger.info("adjusted weight: " + str(weight + base_extrinsic_weight[args.network]))
-        logger.info("Gas price: " + str(gasPrice))
-        logger.info("max fee per gas: " + str(maxFeePerGas))
-        logger.info("max priority fee per gas: " + str(maxPriorityFeePerGas))
-        logger.info("base gas fee: " + str(baseGasFee))
+          # Calculate transaction fee
+          transactionFee = (gasPrice * (weight + base_extrinsic_weight[args.network])) / 2500
+          logger.info("Transaction Fee: " + str(transactionFee))       
+        except:
+          logger.info("###### ERROR DURING SIDECAR CALCULATION ######")
 
-        # Calculate transaction fee
-        transactionFee = (gasPrice * (weight + base_extrinsic_weight[args.network])) / 2500
-        logger.info("Transaction Fee: " + str(transactionFee))       
-        #except:
-        #  logger.info("PLACEHOLDER ERROR!")
+        txData = w3.eth.get_transaction(transactionHash)
+        logger.info("WEB3 GAS: " + str(txData['gas']))
+        logger.info("WEB3 GASPRICE: " + str(txData['gasPrice']))
+        logger.info("WEB3 MAXFEEPERGAS: " + str(txData['maxFeePerGas']))
+        logger.info("WEB3 MAXTIPPERGAS: " + str(txData['maxPriorityFeePerGas']))
 
-
-        # Gas Price = Base Fee + Max Priority Fee Per Gas < Max Fee Per Gas ? 
-        # Base Fee + Max Priority Fee Per Gas: 
-        # Max Fee Per Gas;
-        # Transaction Fee = (Gas Price * Transaction Weight) / 25000
       elif('eip2930' in tx):
         logger.info('EIP-2930 found!')  
 
@@ -205,6 +208,13 @@ if __name__ == "__main__":
     'moonbase-alpha': 250000000,
     'moonriver': 86298000,
     'moonbeam': 86298000,
+  }
+
+  # Dictionary containing RPC URLs
+  rpc_url = {
+    'moonbase-alpha': 'https://moonbase-alpha.public.blastapi.io',
+    'moonriver': 'https://moonriver.public.blastapi.io',
+    'moonbeam': 'https://moonbeam.public.blastapi.io',
   }
   
   main()
