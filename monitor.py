@@ -117,9 +117,6 @@ def perform_content_test():
         logger.info("max priority fee per gas: " + str(maxPriorityFeePerGas))
         logger.info("base gas fee: " + str(baseGasFee))
 
-        1500000000
-        2700000000
-
         # Calculate transaction fee
         transactionFee = (gasPrice * (weight + base_extrinsic_weight[args.network])) / 2500
         logger.info("Transaction Fee: " + str(transactionFee))       
