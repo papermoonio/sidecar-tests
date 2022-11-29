@@ -72,75 +72,84 @@ def perform_content_test():
   response, error = fetch_sidecar_api("/blocks/head")
 
   resjson = response.json()
-  blockNum = resjson['number']
-  extrinsics = resjson['extrinsics']
+  firstBlockNum = resjson['number']
 
-  for extr in extrinsics:
-    method = extr['method']
-    if(method['pallet'] == 'ethereum' and method['method'] == 'transact'):
-      # logger.info(extr)
-      tx = extr['args']['transaction']
+  # Perform the content test on 5 blocks
+  for blocksBack in range(0, 5):
+    if(blocksBack != 0):
+      response, error = fetch_sidecar_api(f"/blocks/{str(int(firstBlockNum) - blocksBack)}")
+      resjson = response.json()
+    blockNum = resjson['number']
+    extrinsics = resjson['extrinsics']
 
-      if('legacy' in tx):
-        logger.info('Legacy found!')
-        #logger.info(tx)
-      elif('eip1559' in tx):
-        # Get relevant data to calculate the gas price
-        maxPriorityFeePerGas = int(tx['eip1559']['maxPriorityFeePerGas'])
-        maxFeePerGas = int(tx['eip1559']['maxFeePerGas'])
-        baseGasFee = base_fee[args.network]
+    # Go through each extrinsic in the block...
+    for extr in extrinsics:
+      method = extr['method']
 
-        # Calculate the gas price
-        gasPrice = baseGasFee + maxPriorityFeePerGas if (baseGasFee + maxPriorityFeePerGas < maxFeePerGas) else maxFeePerGas
+      # ...to look for ethereum transactions
+      if(method['pallet'] == 'ethereum' and method['method'] == 'transact'):
+        tx = extr['args']['transaction']
 
-        # Get the weight
-        try:
-          # Try to get weight from the extrinsic events
-          if(len(extr['events']) > 1):
-            finalEvent = extr['events'][-1]
-            #logger.info(finalEvent)
-            if(finalEvent['method']['method'] == 'ExtrinsicSuccess'):
-              weight = int(finalEvent['data'][0]['weight']['refTime'])
+        if('legacy' in tx):
+          logger.info('Legacy found!')
+          #logger.info(tx)
+        elif('eip1559' in tx):
+          # Get relevant data to calculate the gas price
+          maxPriorityFeePerGas = int(tx['eip1559']['maxPriorityFeePerGas'])
+          maxFeePerGas = int(tx['eip1559']['maxFeePerGas'])
+          baseGasFee = base_fee[args.network]
+
+          # Calculate the gas price
+          gasPrice = baseGasFee + maxPriorityFeePerGas if (baseGasFee + maxPriorityFeePerGas < maxFeePerGas) else maxFeePerGas
+
+          # Get the weight
+          try:
+            # Try to get weight from the extrinsic events
+            if(len(extr['events']) > 1):
+              finalEvent = extr['events'][-1]
+              #logger.info(finalEvent)
+              if(finalEvent['method']['method'] == 'ExtrinsicSuccess'):
+                weight = int(finalEvent['data'][0]['weight']['refTime'])
+              else:
+                raise Exception("The final event was not 'ExtrinsicSuccess'")
+
+              transactionHash = extr['events'][-2]['data'][2]
             else:
-              raise Exception("The final event was not 'ExtrinsicSuccess'")
+              raise Exception("There were no events in the final event of the extrinsic.")
 
-            transactionHash = extr['events'][-2]['data'][2]
-          else:
-            raise Exception("There were no events in the final event of the extrinsic.")
+            # Log out the weight & other data
+            logger.info("base gas fee: " + str(baseGasFee))
+            logger.info("adjusted weight: " + str(weight + base_extrinsic_weight[args.network]))
 
-          # Log out the weight & other data
-          logger.info("base gas fee: " + str(baseGasFee))
-          logger.info("adjusted weight: " + str(weight + base_extrinsic_weight[args.network]))
+            # Calculate transaction fee
+            gasUsed = (weight + base_extrinsic_weight[args.network]) / 25000
+            transactionFee = gasPrice * gasUsed 
+          except:
+            logger.info("###### ERROR DURING SIDECAR CALCULATION ######")
 
-          # Calculate transaction fee
-          gasUsed = (weight + base_extrinsic_weight[args.network]) / 25000
-          transactionFee = gasPrice * gasUsed 
-        except:
-          logger.info("###### ERROR DURING SIDECAR CALCULATION ######")
+          logger.info(f"=========================================================")
+          logger.info(f"Test block {blockNum}, Tx: {transactionHash}")
 
-        logger.info(f"=========================================================")
-        logger.info(f"Test Content, Tx: {transactionHash}")
+          txData = w3.eth.get_transaction(transactionHash)
+          txReceipt = w3.eth.get_transaction_receipt(transactionHash)
+          web3TxFee = txReceipt['gasUsed'] * txData['gasPrice']
+          
+          pairsToTest = [
+            ['maxFeePerGas', txData['maxFeePerGas'], maxFeePerGas],
+            ['maxPriorityFeePerGas', txData['maxPriorityFeePerGas'], maxPriorityFeePerGas],
+            ['gasPrice', txData['gasPrice'], gasPrice],
+            ['gasUsed', txReceipt['gasUsed'], gasUsed],
+            ['transactionFee', web3TxFee, transactionFee]
+          ]
 
-        txData = w3.eth.get_transaction(transactionHash)
-        txReceipt = w3.eth.get_transaction_receipt(transactionHash)
-        web3TxFee = txReceipt['gasUsed'] * txData['gasPrice']
-        
-        pairsToTest = [
-          ['maxFeePerGas', txData['maxFeePerGas'], maxFeePerGas],
-          ['maxPriorityFeePerGas', txData['maxPriorityFeePerGas'], maxPriorityFeePerGas],
-          ['gasPrice', txData['gasPrice'], gasPrice],
-          ['gasUsed', txReceipt['gasUsed'], gasUsed],
-          ['transactionFee', web3TxFee, transactionFee]
-        ]
-
-        testsPassed = True
-        for test in pairsToTest:
-          if(test[1] != test[2]): 
-            logger.error(f"  [✘] Test failed - Error: {test[0]} not equal, {str(test[1])} != {str(test[2])}")
-            testsPassed = False
-        if(testsPassed):
-          logger.info(f"  [✔] All content tests passed")
-    
+          testsPassed = True
+          for test in pairsToTest:
+            if(test[1] != test[2]): 
+              logger.error(f"  [✘] Test failed - Error: {test[0]} not equal, {str(test[1])} != {str(test[2])}")
+              testsPassed = False
+          if(testsPassed):
+            logger.info(f"  [✔] All content tests passed")
+      
 
 def main(amount_random_blocks = 10):
   tests = [
