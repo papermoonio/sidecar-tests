@@ -91,8 +91,9 @@ def perform_content_test():
         tx = extr['args']['transaction']
 
         if('legacy' in tx):
+          value = int(tx['legacy']['value'])
           gasPrice = int(tx['legacy']['gasPrice'])
-          transactionHash, gasUsed, transactionFee = calculate_weight(extr, gasPrice)
+          transactionHash, gasUsed, transactionFee, txFrom, txTo = calculate_weight(extr, gasPrice)
 
           txData = w3.eth.get_transaction(transactionHash)
           txReceipt = w3.eth.get_transaction_receipt(transactionHash)
@@ -108,7 +109,10 @@ def perform_content_test():
           pairsToTest = [
             ['gasPrice', txData['gasPrice'], gasPrice],
             ['gasUsed', txReceipt['gasUsed'], gasUsed],
-            ['transactionFee', web3TxFee, transactionFee]
+            ['transactionFee', web3TxFee, transactionFee],
+            ['from', txReceipt['from'].lower(), str(txFrom).lower()],
+            ['to', txReceipt['to'].lower(), str(txTo).lower()],
+            ['value', txData['value'], value],
           ]
 
           testsPassed = True
@@ -120,6 +124,9 @@ def perform_content_test():
             logger.info(f"  [✔] All content tests passed")
 
         elif('eip1559' in tx):
+          # Get relevant data to test
+          value = int(tx['eip1559']['value'])
+
           # Get relevant data to calculate the gas price
           maxPriorityFeePerGas = int(tx['eip1559']['maxPriorityFeePerGas'])
           maxFeePerGas = int(tx['eip1559']['maxFeePerGas'])
@@ -129,7 +136,7 @@ def perform_content_test():
           gasPrice = baseGasFee + maxPriorityFeePerGas if (baseGasFee + maxPriorityFeePerGas < maxFeePerGas) else maxFeePerGas
 
           # Get the weight
-          transactionHash, gasUsed, transactionFee = calculate_weight(extr, gasPrice)
+          transactionHash, gasUsed, transactionFee, txFrom, txTo = calculate_weight(extr, gasPrice)
 
           # Start test logging
           logger.info(f"=========================================================")
@@ -144,7 +151,10 @@ def perform_content_test():
             ['maxPriorityFeePerGas', txData['maxPriorityFeePerGas'], maxPriorityFeePerGas],
             ['gasPrice', txData['gasPrice'], gasPrice],
             ['gasUsed', txReceipt['gasUsed'], gasUsed],
-            ['transactionFee', web3TxFee, transactionFee]
+            ['transactionFee', web3TxFee, transactionFee],
+            ['from', txReceipt['from'].lower(), str(txFrom).lower()],
+            ['to', txReceipt['to'].lower(), str(txTo).lower()],
+            ['value', txData['value'], value],
           ]
 
           testsPassed = True
@@ -157,7 +167,7 @@ def perform_content_test():
 
 def calculate_weight(extr, gasPrice):
     try:
-            # Try to get weight from the extrinsic events
+      # Try to get weight from the extrinsic events
       if(len(extr['events']) > 1):
         finalEvent = extr['events'][-1]
         if(finalEvent['method']['method'] == 'ExtrinsicSuccess'):
@@ -165,6 +175,8 @@ def calculate_weight(extr, gasPrice):
         else:
           raise Exception("The final event was not 'ExtrinsicSuccess'")
 
+        txFrom = extr['events'][-2]['data'][0]
+        txTo = extr['events'][-2]['data'][1]
         transactionHash = extr['events'][-2]['data'][2]
       else:
         raise Exception("There were no events in the final event of the extrinsic.")
@@ -179,7 +191,7 @@ def calculate_weight(extr, gasPrice):
     except:
       logger.info("###### ERROR DURING SIDECAR CALCULATION ######")
 
-    return transactionHash, gasUsed, transactionFee
+    return transactionHash, gasUsed, transactionFee, txFrom, txTo
       
 
 def main(amount_random_blocks = 10):
