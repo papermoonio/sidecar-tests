@@ -71,7 +71,7 @@ def perform_api_test(test_name, api_path):
 # TODO: fetch from rpc? might be too much testing
 def perform_content_test():
   w3 = Web3(Web3.HTTPProvider(rpc_url[args.network]))
-  response, error = fetch_sidecar_api("/blocks/3262143")
+  response, error = fetch_sidecar_api("/blocks/head")
 
   resjson = response.json()
   firstBlockNum = resjson['number']
