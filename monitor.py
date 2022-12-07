@@ -125,6 +125,8 @@ def perform_content_test():
               testsPassed = False
           if(testsPassed):
             logger.info(f"  [✔] All content tests passed")
+          else:
+            sys.exit(1)
 
         elif('eip1559' in tx):
           # Get relevant data to test
