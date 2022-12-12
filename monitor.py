@@ -73,7 +73,6 @@ def perform_api_test(test_name, api_path):
 def perform_content_test():
   w3 = Web3(Web3.HTTPProvider(rpc_url[args.network]))
   substrate = SubstrateInterface(rpc_url[args.network])
-  logger.info(rpc_url[args.network])
   response, error = fetch_sidecar_api("/blocks/head")
 
   resjson = response.json()
@@ -232,32 +231,32 @@ def main(amount_random_blocks = 10):
     {"test_name": "Fetch latest (best) block header", "api_path": "/blocks/head/header"},
   ]
 
-  # for b in problematic_blocks[args.network]:
-  #   tests.append({"test_name": f"Fetch problematic block #{b}", "api_path": f"/blocks/{b}"})
+  for b in problematic_blocks[args.network]:
+    tests.append({"test_name": f"Fetch problematic block #{b}", "api_path": f"/blocks/{b}"})
 
-  # for test in tests:
-  #   test_passed = perform_api_test(*test.values())
-  #   if not test_passed:
-  #     sys.exit(1)
+  for test in tests:
+    test_passed = perform_api_test(*test.values())
+    if not test_passed:
+      sys.exit(1)
 
-  # # Fetch first block of the latest runtime
-  # response, error = fetch_sidecar_api("/runtime/spec")
-  # if error or response.status_code != requests.codes.ok:
-  #   logger.critical("Could not fetch the first block of the last runtime")
-  #   sys.exit(1)
+  # Fetch first block of the latest runtime
+  response, error = fetch_sidecar_api("/runtime/spec")
+  if error or response.status_code != requests.codes.ok:
+    logger.critical("Could not fetch the first block of the last runtime")
+    sys.exit(1)
 
-  # first_block_of_runtime = int(response.json()["at"]["height"])
+  first_block_of_runtime = int(response.json()["at"]["height"])
 
-  # tests = []
-  # for _ in range(amount_random_blocks):
-  #   random_block = random.randint(1, first_block_of_runtime)
-  #   tests.append({"test_name": f"Fetch random block #{random_block}", "api_path": f"/blocks/{random_block}"})
+  tests = []
+  for _ in range(amount_random_blocks):
+    random_block = random.randint(1, first_block_of_runtime)
+    tests.append({"test_name": f"Fetch random block #{random_block}", "api_path": f"/blocks/{random_block}"})
 
-  # # Tests to ensure that the endpoints have no errors
-  # for test in tests:
-  #   test_passed = perform_api_test(*test.values())
-  #   if not test_passed:
-  #     sys.exit(1)
+  # Tests to ensure that the endpoints have no errors
+  for test in tests:
+    test_passed = perform_api_test(*test.values())
+    if not test_passed:
+      sys.exit(1)
 
   # Tests to ensure that the content of the blocks have no errors
   perform_content_test()
