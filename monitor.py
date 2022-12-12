@@ -2,6 +2,7 @@
 
 import requests, random, time, logging, argparse, sys
 from web3 import Web3
+from substrateinterface import SubstrateInterface
 
 num_blocks_to_perform_content_test = 5
 
@@ -71,10 +72,13 @@ def perform_api_test(test_name, api_path):
 # TODO: fetch from rpc? might be too much testing
 def perform_content_test():
   w3 = Web3(Web3.HTTPProvider(rpc_url[args.network]))
+  substrate = SubstrateInterface(rpc_url[args.network])
+  logger.info(rpc_url[args.network])
   response, error = fetch_sidecar_api("/blocks/head")
 
   resjson = response.json()
   firstBlockNum = resjson['number']
+
 
   # Perform the content test on 5 blocks
   for blocksBack in range(0, num_blocks_to_perform_content_test):
@@ -83,6 +87,7 @@ def perform_content_test():
       resjson = response.json()
     blockNum = resjson['number']
     extrinsics = resjson['extrinsics']
+    runtimeVersion = substrate.get_block_runtime_version(resjson['hash'])['specVersion']
 
     # Go through each extrinsic in the block...
     for extr in extrinsics:
@@ -95,7 +100,7 @@ def perform_content_test():
         if('legacy' in tx):
           value = int(tx['legacy']['value'])
           gasPrice = int(tx['legacy']['gasPrice'])
-          transactionHash, gasUsed, transactionFee, txFrom, txTo = calculate_weight(extr, gasPrice)
+          transactionHash, gasUsed, transactionFee, txFrom, txTo = calculate_weight(extr, gasPrice, runtimeVersion)
 
           txData = w3.eth.get_transaction(transactionHash)
           txReceipt = w3.eth.get_transaction_receipt(transactionHash)
@@ -123,7 +128,7 @@ def perform_content_test():
             if(test[1] != test[2]): 
               logger.error(f"  [✘] Test failed - Error: {test[0]} not equal, {str(test[1])} != {str(test[2])}")
               testsPassed = False
-          if(testsPassed):
+          if testsPassed:
             logger.info(f"  [✔] All content tests passed")
           else:
             sys.exit(1)
@@ -141,7 +146,7 @@ def perform_content_test():
           gasPrice = baseGasFee + maxPriorityFeePerGas if (baseGasFee + maxPriorityFeePerGas < maxFeePerGas) else maxFeePerGas
 
           # Get the weight
-          transactionHash, gasUsed, transactionFee, txFrom, txTo = calculate_weight(extr, gasPrice)
+          transactionHash, gasUsed, transactionFee, txFrom, txTo = calculate_weight(extr, gasPrice, runtimeVersion)
 
           # Start test logging
           logger.info(f"=========================================================")
@@ -168,7 +173,7 @@ def perform_content_test():
             if(test[1] != test[2]): 
               logger.error(f"  [✘] Test failed - Error: {test[0]} not equal, {str(test[1])} != {str(test[2])}")
               testsPassed = False
-          if(testsPassed):
+          if testsPassed:
             logger.info(f"  [✔] All content tests passed")
 
           if not testsPassed:
@@ -194,7 +199,7 @@ def perform_content_test():
           sys.exit(1)
     
 
-def calculate_weight(extr, gasPrice):
+def calculate_weight(extr, gasPrice, runtimeVersion):
     try:
       # Try to get weight from the extrinsic events
       if(len(extr['events']) > 1):
@@ -211,7 +216,7 @@ def calculate_weight(extr, gasPrice):
         raise Exception("There were no events in the final event of the extrinsic.")
 
       # Calculate transaction fee
-      gasUsed = (weight + base_extrinsic_weight[args.network]) / 25000
+      gasUsed = (weight + (base_extrinsic_weight[args.network] if runtimeVersion < 2000 else 0)) / 25000
       transactionFee = gasPrice * gasUsed 
     except:
       logger.info("###### ERROR DURING SIDECAR CALCULATION ######")
@@ -227,32 +232,32 @@ def main(amount_random_blocks = 10):
     {"test_name": "Fetch latest (best) block header", "api_path": "/blocks/head/header"},
   ]
 
-  for b in problematic_blocks[args.network]:
-    tests.append({"test_name": f"Fetch problematic block #{b}", "api_path": f"/blocks/{b}"})
+  # for b in problematic_blocks[args.network]:
+  #   tests.append({"test_name": f"Fetch problematic block #{b}", "api_path": f"/blocks/{b}"})
 
-  for test in tests:
-    test_passed = perform_api_test(*test.values())
-    if not test_passed:
-      sys.exit(1)
+  # for test in tests:
+  #   test_passed = perform_api_test(*test.values())
+  #   if not test_passed:
+  #     sys.exit(1)
 
-  # Fetch first block of the latest runtime
-  response, error = fetch_sidecar_api("/runtime/spec")
-  if error or response.status_code != requests.codes.ok:
-    logger.critical("Could not fetch the first block of the last runtime")
-    sys.exit(1)
+  # # Fetch first block of the latest runtime
+  # response, error = fetch_sidecar_api("/runtime/spec")
+  # if error or response.status_code != requests.codes.ok:
+  #   logger.critical("Could not fetch the first block of the last runtime")
+  #   sys.exit(1)
 
-  first_block_of_runtime = int(response.json()["at"]["height"])
+  # first_block_of_runtime = int(response.json()["at"]["height"])
 
-  tests = []
-  for _ in range(amount_random_blocks):
-    random_block = random.randint(1, first_block_of_runtime)
-    tests.append({"test_name": f"Fetch random block #{random_block}", "api_path": f"/blocks/{random_block}"})
+  # tests = []
+  # for _ in range(amount_random_blocks):
+  #   random_block = random.randint(1, first_block_of_runtime)
+  #   tests.append({"test_name": f"Fetch random block #{random_block}", "api_path": f"/blocks/{random_block}"})
 
-  # Tests to ensure that the endpoints have no errors
-  for test in tests:
-    test_passed = perform_api_test(*test.values())
-    if not test_passed:
-      sys.exit(1)
+  # # Tests to ensure that the endpoints have no errors
+  # for test in tests:
+  #   test_passed = perform_api_test(*test.values())
+  #   if not test_passed:
+  #     sys.exit(1)
 
   # Tests to ensure that the content of the blocks have no errors
   perform_content_test()
