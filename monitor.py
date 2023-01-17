@@ -82,7 +82,7 @@ def perform_content_test():
   # Perform the content test on 5 blocks
   for blocksBack in range(0, num_blocks_to_perform_content_test):
     if(blocksBack != 0):
-      response, error = fetch_sidecar_api(f"/blocks/2746105")#{str(int(firstBlockNum) - blocksBack)}")
+      response, error = fetch_sidecar_api(f"/blocks/{str(int(firstBlockNum) - blocksBack)}")
       resjson = response.json()
     blockNum = resjson['number']
     extrinsics = resjson['extrinsics']
