@@ -3,4 +3,4 @@
 python -m venv test-env
 . ./test-env/bin/activate
 python -m pip install requests web3 substrate-interface
-python monitor.py
+python monitor.py --network moonbase-alpha

@@ -88,6 +88,15 @@ def perform_content_test():
     extrinsics = resjson['extrinsics']
     runtimeVersion = substrate.get_block_runtime_version(resjson['hash'])['specVersion']
 
+    # If the runtimeVersion is 2100 or greater, then we base the baseGasFee off of it
+    if (runtimeVersion >= 2100):
+      feeMultiplierRes, error = fetch_sidecar_api(f"/pallets/transaction-payment/storage/nextFeeMultiplier?at={str(int(blockNum))}")
+      # Calculation derived from https://github.com/PureStake/moonbeam/blob/c87469ad8740a97fe2fbc763a25a9e209cb89baf/runtime/moonbase/src/lib.rs#L406
+      baseGasFee = int((int(feeMultiplierRes.json()['value']) * 50000 * 25000) / 1000000000000000000)
+      logger.info(f"Fee Multiplier for parent block of {str(blockNum)} is {str(baseGasFee)}")
+    else:
+      baseGasFee = base_fee[args.network]
+
     # Go through each extrinsic in the block...
     for extr in extrinsics:
       method = extr['method']
@@ -139,10 +148,10 @@ def perform_content_test():
           # Get relevant data to calculate the gas price
           maxPriorityFeePerGas = int(tx['eip1559']['maxPriorityFeePerGas'])
           maxFeePerGas = int(tx['eip1559']['maxFeePerGas'])
-          baseGasFee = base_fee[args.network]
 
           # Calculate the gas price
           gasPrice = baseGasFee + maxPriorityFeePerGas if (baseGasFee + maxPriorityFeePerGas < maxFeePerGas) else maxFeePerGas
+          logger.info(f"Calculated: {baseGasFee + maxPriorityFeePerGas}    Max Fee Per Gas: {maxFeePerGas}")
 
           # Get the weight
           transactionHash, gasUsed, transactionFee, txFrom, txTo = calculate_weight(extr, gasPrice, runtimeVersion)
