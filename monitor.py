@@ -88,8 +88,8 @@ def perform_content_test():
     extrinsics = resjson['extrinsics']
     runtimeVersion = substrate.get_block_runtime_version(resjson['hash'])['specVersion']
 
-    # If the runtimeVersion is 2100 or greater, then we base the baseGasFee off of it
-    if (runtimeVersion >= 2100):
+    # If the runtimeVersion is 2100 or greater (in Moonbase Alpha), then we base the baseGasFee off of it
+    if (runtimeVersion >= 2100 and args.network == "moonbase-alpha"):
       feeMultiplierRes, error = fetch_sidecar_api(f"/pallets/transaction-payment/storage/nextFeeMultiplier?at={str(int(blockNum))}")
       # Calculation derived from https://github.com/PureStake/moonbeam/blob/c87469ad8740a97fe2fbc763a25a9e209cb89baf/runtime/moonbase/src/lib.rs#L406
       baseGasFee = int((int(feeMultiplierRes.json()['value']) * 50000 * 25000) / 1000000000000000000)
