@@ -67,9 +67,6 @@ def perform_api_test(test_name, api_path):
 
   return True
 
-# TODO: fetch from sidecar
-# TODO: fetch from polkadot
-# TODO: fetch from rpc? might be too much testing
 def perform_content_test():
   w3 = Web3(Web3.HTTPProvider(rpc_url[args.network]))
   substrate = SubstrateInterface(rpc_url[args.network])
@@ -91,10 +88,17 @@ def perform_content_test():
     # If the runtimeVersion is 2100 or greater (in Moonbase Alpha), then we base the baseGasFee off of it
     isDynamicFeeMoonbaseAlpha = runtimeVersion >= 2100 and args.network == "moonbase-alpha"
     isDynamicFeeMoonriver = runtimeVersion >= 2201 and args.network == "moonriver"
-    if (isDynamicFeeMoonbaseAlpha or isDynamicFeeMoonriver):
-      feeMultiplierRes, error = fetch_sidecar_api(f"/pallets/transaction-payment/storage/nextFeeMultiplier?at={str(int(blockNum))}")
+    isDynamicFeeMoonbeam = runtimeVersion >= 2302 and args.network == "moonbeam"
+    if (isDynamicFeeMoonbaseAlpha or isDynamicFeeMoonriver or isDynamicFeeMoonbeam):
       # Calculation derived from https://github.com/PureStake/moonbeam/blob/c87469ad8740a97fe2fbc763a25a9e209cb89baf/runtime/moonbase/src/lib.rs#L406
-      baseGasFee = int((int(feeMultiplierRes.json()['value']) * 50000 * 25000) / 1000000000000000000)
+      feeMultiplierRes, error = fetch_sidecar_api(f"/pallets/transaction-payment/storage/nextFeeMultiplier?at={str(int(blockNum))}")
+      nextFeeMultiplier = int(feeMultiplierRes.json()['value'])
+      
+      # New version of the calculation
+      weightFee = weight_fee[args.network]
+      weightPerGas = 1000000000000 / 40000000
+      baseGasFee = int(int(nextFeeMultiplier * weightFee * weightPerGas) / 1000000000000000000)
+
       logger.info(f"Fee Multiplier for parent block of {str(blockNum)} is {str(baseGasFee)}")
     else:
       baseGasFee = base_fee[args.network]
@@ -316,6 +320,14 @@ if __name__ == "__main__":
     'moonbase-alpha': 'https://moonbase-alpha.public.blastapi.io',
     'moonriver': 'https://moonriver.public.blastapi.io',
     'moonbeam': 'https://moonbeam.public.blastapi.io',
+  }
+
+  # Weight fee constants
+  # https://github.com/PureStake/moonbeam/blob/c8648b8c124f62b3eae3dc3e864fb3d134e92360/runtime/moonbeam/src/lib.rs#L116-L129
+  weight_fee = {
+    'moonbase-alpha': 50 * 1000 * 1,
+    'moonriver': 50 * 1000 * 1,
+    'moonbeam': 50 * 1000 * 100,
   }
   
   main()
