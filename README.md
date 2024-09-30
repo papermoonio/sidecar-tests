@@ -7,14 +7,9 @@ Some python scripts to test the sidecar implementation for Moonbeam/Moonriver/Mo
 * `sidecar.sh` is a bash script that can set up a Moonbase Alpha instance of sidecar.  
 * `monitor.sh` is a bash script that runs the python tests. Use after running `sidecar.sh`.  
 
-How to generate types:  
-https://docs.google.com/document/d/1nFMYyrlnCCzm7Fe4QJEquB4COw-euXfhKA4agyZU11s/edit#heading=h.kpww0v599wrk
+Please read instructions on [how to generate Moonbeam-specific types](https://docs.moonbeam.network/builders/substrate/libraries/sidecar/#generating-the-types-bundle){target=\_blank}.
 
-## Run with Docker
-
-Easier local launch with Docker
-
-### Sidecar
+## Run Sidecar with Docker
 
 Launch the sidecar container connected to the network of your choice, and in the version defined. Will be listening in `localhost:8080`
 
@@ -33,7 +28,11 @@ docker run -d --rm --name substrate-api-sidecar \
   build/src/main.js
 ```
 
-### Sidecar tests
+## Run Sidecar as an NPM Package
+
+Please refer to the [Moonbeam Documentation](https://docs.moonbeam.network/builders/substrate/libraries/sidecar/#installing-and-running-substrate-api-sidecar){target=\_blank}.
+
+## Sidecar tests
 
 Launch tests with Python
 
@@ -42,5 +41,5 @@ python -m venv test-env
 . ./test-env/bin/activate
 python -m pip install requests web3 substrate-interface
 # moonbase-alpha|moonriver|moonbeam
-python monitor.py --network moonbase-alpha
+python monitor.py --network moonbase-alpha --log=INFO
 ```
