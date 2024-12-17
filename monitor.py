@@ -157,7 +157,7 @@ def perform_content_test():
 
           # Calculate the gas price
           gasPrice = baseGasFee + maxPriorityFeePerGas if (baseGasFee + maxPriorityFeePerGas < maxFeePerGas) else maxFeePerGas
-          logger.info(f"Calculated: {baseGasFee + maxPriorityFeePerGas}    Max Fee Per Gas: {maxFeePerGas}")
+          logger.info(f"Calculated: {gasPrice}    Max Fee Per Gas: {maxFeePerGas}    Max Priority Fee per Gas: {maxPriorityFeePerGas}" )
 
           # Get the weight
           transactionHash, gasUsed, transactionFee, txFrom, txTo = calculate_weight(extr, gasPrice, runtimeVersion)
