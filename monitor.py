@@ -326,8 +326,8 @@ if __name__ == "__main__":
   # https://github.com/PureStake/moonbeam/blob/c8648b8c124f62b3eae3dc3e864fb3d134e92360/runtime/moonbeam/src/lib.rs#L116-L129
   weight_fee = {
     'moonbase-alpha': 50 * 1000 * 1 / 4,
-    'moonriver': 50 * 1000 * 1,
-    'moonbeam': 50 * 1000 * 100,
+    'moonriver': 50 * 1000 * 1 / 4,
+    'moonbeam': 50 * 1000 * 100 / 4,
   }
   
   main()
