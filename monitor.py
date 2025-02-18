@@ -4,7 +4,7 @@ import requests, random, time, logging, argparse, sys
 from web3 import Web3
 from substrateinterface import SubstrateInterface
 
-num_blocks_to_perform_content_test = 5
+num_blocks_to_perform_content_test = 10
 
 def parse_arguments():
   parser = argparse.ArgumentParser(description="Script to test a Sidecar instance")

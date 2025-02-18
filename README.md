@@ -30,7 +30,7 @@ docker run -d --rm --name substrate-api-sidecar \
 
 ## Run Sidecar as an NPM Package
 
-Please refer to the [Moonbeam Documentation](https://docs.moonbeam.network/builders/substrate/libraries/sidecar/#installing-and-running-substrate-api-sidecar){target=\_blank}.
+Please refer to the [Moonbeam Documentation](https://docs.moonbeam.network/builders/substrate/libraries/sidecar/#installing-and-running-substrate-api-sidecar).
 
 ## Sidecar tests
 
@@ -39,7 +39,7 @@ Launch tests with Python
 ```bash
 python -m venv test-env
 . ./test-env/bin/activate
-python -m pip install requests web3 substrate-interface
+python -m pip install -r requirements.txt
 # moonbase-alpha|moonriver|moonbeam
 python monitor.py --network moonbase-alpha --log=INFO
 ```
