@@ -317,9 +317,9 @@ if __name__ == "__main__":
 
   # Dictionary containing RPC URLs
   rpc_url = {
-    'moonbase-alpha': 'https://moonbase-alpha.public.blastapi.io',
-    'moonriver': 'https://moonriver.public.blastapi.io',
-    'moonbeam': 'https://moonbeam.public.blastapi.io',
+    'moonbase-alpha': 'https://rpc.api.moonbase.moonbeam.network',
+    'moonriver': 'https://rpc.api.moonriver.moonbeam.network',
+    'moonbeam': 'https://rpc.api.moonbeam.network',
   }
 
   # Weight fee constants
